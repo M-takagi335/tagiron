@@ -17,7 +17,12 @@ export function History({ history, compact = false }: { history: readonly Event[
   </li>)}</ol>;
 }
 
-const noteStates = ['未確認', 'ありそう', 'なし', '確定'];
+const noteStates = [
+  { name: '未確認', mark: '–' },
+  { name: 'ありそう', mark: '○' },
+  { name: 'なし', mark: '×' },
+  { name: '確定', mark: '✓' },
+];
 const faces = [...new Map(tiles.map(tile => [faceKey(tile), tile])).values()];
 
 export function Notes({ notes, onChange }: { notes: Record<string, number>; onChange: (key: string, value: number) => void }) {
@@ -25,13 +30,16 @@ export function Notes({ notes, onChange }: { notes: Record<string, number>; onCh
   return <div className="notes">
     <div className="note-tabs" aria-label="メモの位置">{['候補表', '1', '2', '3', '4', '5'].map((item, i) =>
       <button type="button" key={item} aria-pressed={tab === i} onClick={() => setTab(i)}>{item}</button>)}</div>
-    <div className="note-legend">{noteStates.map((name, i) => <span key={name} data-state={i}>{name}</span>)}</div>
+    <div className="note-legend">{noteStates.map(({ name, mark }, i) => <span key={name} data-state={i}>
+      <span className="note-mark" aria-hidden="true">{mark}</span>{name}
+    </span>)}</div>
     <div className="note-grid">{faces.map(tile => {
       const key = tab + '/' + faceKey(tile);
       const state = notes[key] ?? 0;
-      return <button key={key} data-state={state} className={tile.color} title={noteStates[state]}
-        aria-label={labelTile(tile) + '、' + noteStates[state]} onClick={() => onChange(key, (state + 1) % 4)}>
-        {tile.value}<small>{state === 1 ? '?' : state === 2 ? '×' : state === 3 ? '✓' : '·'}</small>
+      const { name, mark } = noteStates[state];
+      return <button key={key} data-state={state} className={tile.color} title={name}
+        aria-label={labelTile(tile) + '、' + name} onClick={() => onChange(key, (state + 1) % noteStates.length)}>
+        <span className="note-number">{tile.value}</span><span className="note-mark" aria-hidden="true">{mark}</span>
       </button>;
     })}</div>
   </div>;

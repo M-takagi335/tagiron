@@ -89,6 +89,9 @@ test('選択式質問とNPCの手番がオフラインでも進み、位置メ�
   await page.getByRole('button', { name: '推理メモ', exact: true }).click();
   await dialog.getByRole('button', { name: '3', exact: true }).click();
   await expect(dialog.getByRole('button', { name: '赤0、ありそう' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '赤0、ありそう' })).toContainText('○');
+  await dialog.getByRole('button', { name: '赤0、ありそう' }).click();
+  await expect(dialog.getByRole('button', { name: '赤0、なし' })).toContainText('×');
 });
 
 test('誤答を伏せたまま進行し、正解後に成績と再戦を表示する', async ({ page }) => {
