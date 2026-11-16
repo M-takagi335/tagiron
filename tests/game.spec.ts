@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { newMatch, npcView } from '../src/game.ts';
 import { candidates } from '../src/npc.ts';
-import { answer, answerLabel, colorNames, handKey, labelTile } from '../src/rules.ts';
+import { answer, answerLabel, colorNames, compare, handKey, labelTile, tiles } from '../src/rules.ts';
 import type { Tile } from '../src/rules.ts';
 
 const key = 'code-breakers-v1';
@@ -98,7 +98,6 @@ test('誤答を伏せたまま進行し、正解後に成績と再戦を表示�
   const match = fixture();
   const correct = match.hands.npc;
   const dealt = new Set(Object.values(match.hands).flat().map(tile => tile.id));
-  const { tiles, compare } = await import('../src/rules.ts');
   const wrong = [...correct.slice(0, 4), tiles.find(tile => !dealt.has(tile.id) && tile.color !== 'yellow')!].sort(compare);
   await page.addInitScript(({ key, match }) => {
     localStorage.setItem(key, JSON.stringify({ tutorialSeen: true, reduced: true, match }));
@@ -126,6 +125,42 @@ test('誤答を伏せたまま進行し、正解後に成績と再戦を表示�
   await page.getByRole('button', { name: '対戦成績', exact: true }).click();
   await expect(dialog.getByText('1 勝', { exact: true })).toBeVisible();
 });
+
+for (const ownCount of [0, 1, 2]) {
+  test('自分の黄色5が' + ownCount + '枚なら残りの黄色5だけ宣言できる', async ({ page }) => {
+    const yellow = tiles.filter(tile => tile.value === 5);
+    const others = tiles.filter(tile => tile.value !== 5);
+    const remaining = 2 - ownCount;
+    const player = [...others.slice(0, 5 - ownCount), ...yellow.slice(0, ownCount)].sort(compare);
+    const npc = [...others.slice(9, 14 - remaining), ...yellow.slice(ownCount)].sort(compare);
+    const match = { ...fixture(), hands: { player, npc } };
+    await page.addInitScript(({ key, match }) => {
+      localStorage.setItem(key, JSON.stringify({ tutorialSeen: true, reduced: true, match }));
+    }, { key, match });
+    await page.goto('/');
+    await resume(page);
+    await page.getByRole('button', { name: '解答する' }).click();
+    const dialog = page.getByRole('dialog');
+    const choices = dialog.getByRole('button', { name: /^黄5/ });
+    await expect(choices).toHaveCount(remaining);
+    await expect(dialog.getByRole('button', { name: /^[赤青]5/ })).toHaveCount(0);
+
+    if (remaining > 0) {
+      const firstYellow = choices.first();
+      await firstYellow.click();
+      await expect(firstYellow).toBeDisabled();
+      await expect(dialog.getByRole('button', { name: /^黄5/ }).and(dialog.locator(':enabled'))).toHaveCount(remaining - 1);
+      await dialog.getByRole('button', { name: 'キャンセル', exact: true }).click();
+      await page.getByRole('button', { name: '解答する' }).click();
+    }
+
+    const declaration = remaining === 2 ? npc.map(tile =>
+      tile.color === 'yellow' ? yellow.find(other => other.id !== tile.id)! : tile) : npc;
+    await fillGuess(page, declaration, player);
+    await expect(dialog.getByText('CODE BROKEN')).toBeVisible();
+    await expect(dialog.locator('.tile.yellow')).toHaveCount(remaining);
+  });
+}
 
 test('NPCだけが解答できる手番でNPCが勝ち、敗北を記録する', async ({ page }) => {
   const match = fixture();

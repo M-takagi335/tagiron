@@ -15,6 +15,8 @@ describe('タイル', () => {
       expect(tiles.filter(t => t.color === color)).toHaveLength(count);
     }
     expect(tiles.filter(t => t.color === 'yellow').every(t => t.value === 5)).toBe(true);
+    expect([...new Set(tiles.map(t => t.value))]).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(tiles.filter(t => t.value === 5).map(t => t.color)).toEqual(['yellow', 'yellow']);
   });
 
   it('重複せず5枚ずつ昇順に配布する', () => {
@@ -33,6 +35,38 @@ describe('タイル', () => {
     expect(validGuess(hand('red0', 'red2', 'red3', 'yellow5', 'yellow5'), own)).toBe(false);
     expect(validGuess(hand('red1', 'red2', 'red3', 'yellow5', 'yellow5').reverse(), own)).toBe(false);
     expect(validGuess(Array(5).fill({ color: 'red', value: 3 }), own)).toBe(false);
+  });
+});
+
+describe('黄色5の解答とNPC候補', () => {
+  const yellow = tiles.filter(t => t.color === 'yellow');
+  const ownOther = hand('red0', 'blue1', 'red2', 'blue3', 'red4');
+  const opponentOther = hand('blue0', 'red1', 'blue2', 'red6', 'blue9');
+
+  it.each([0, 1, 2])('自分の黄色5が%i枚の場合、残り枚数だけ使用できる', ownCount => {
+    const own = [...ownOther.slice(ownCount), ...yellow.slice(0, ownCount)].sort(compare);
+    const remaining = 2 - ownCount;
+    const opponent = [...opponentOther.slice(remaining), ...yellow.slice(ownCount)].sort(compare);
+    const match = { ...newMatch('hard', () => 0.42), hands: { player: opponent, npc: own }, actor: 'npc' as const };
+
+    const rows = candidates(npcView(match));
+    expect([...new Set(rows.map(row => row.filter(t => t.value === 5).length))].sort())
+      .toEqual(Array.from({ length: remaining + 1 }, (_, count) => count));
+    expect(rows.filter(row => handKey(row) === handKey(opponent))).toHaveLength(1);
+
+    for (let count = 0; count <= 3; count++) {
+      const proposed = [...opponentOther.slice(count), ...Array(count).fill(yellow[0])].sort(compare);
+      expect(validGuess(proposed, own)).toBe(count <= remaining);
+    }
+    for (const color of ['red', 'blue'] as const) {
+      expect(validGuess([...opponentOther.slice(1), { color, value: 5 }].sort(compare), own)).toBe(false);
+    }
+
+    // Swapping the two IDs preserves the faces at every position.
+    const declared = opponent.map(t => t.color === 'yellow' ? yellow.find(other => other.id !== t.id)! : t);
+    expect(guess(match, 'npc', declared).winner).toBe('npc');
+    const wrong = rows.find(row => handKey(row) !== handKey(opponent))!;
+    expect(guess(match, 'npc', wrong)).toMatchObject({ winner: null, actor: 'player' });
   });
 });
 
