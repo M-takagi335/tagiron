@@ -24,7 +24,7 @@ async function fillGuess(page: Page, hand: Tile[], own: Tile[]) {
     const tile = hand[i];
     await dialog.getByRole('button', { name: (i + 1) + '番目 未選択', exact: true }).click();
     const suffix = tile.color === 'yellow' && !own.some(t => t.color === 'yellow') ?
-      ' ' + (Number(tile.id.at(-1)) + 1) + '枚目' : '';
+      ' ' + tile.id.at(-1) + '枚目' : '';
     await dialog.getByRole('button', { name: colorNames[tile.color] + tile.value + suffix, exact: true }).click();
   }
   await dialog.getByRole('button', { name: '確認へ' }).click();
@@ -54,7 +54,7 @@ test('初回案内・難易度選択・タイトルから開始', async ({ page 
 test('選択式質問とNPCの手番がオフラインでも進み、位置メモを再開できる', async ({ context, page }) => {
   const match = fixture();
   await page.addInitScript(({ key, match }) => {
-    if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({ tutorialSeen: true, reduced: true, match }));
+    if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({ tileIdVersion: 2, tutorialSeen: true, reduced: true, match }));
   }, { key, match });
   await page.goto('/');
   await resume(page);
@@ -100,7 +100,7 @@ test('誤答を伏せたまま進行し、正解後に成績と再戦を表示�
   const dealt = new Set(Object.values(match.hands).flat().map(tile => tile.id));
   const wrong = [...correct.slice(0, 4), tiles.find(tile => !dealt.has(tile.id) && tile.color !== 'yellow')!].sort(compare);
   await page.addInitScript(({ key, match }) => {
-    localStorage.setItem(key, JSON.stringify({ tutorialSeen: true, reduced: true, match }));
+    localStorage.setItem(key, JSON.stringify({ tileIdVersion: 2, tutorialSeen: true, reduced: true, match }));
   }, { key, match });
   await page.goto('/');
   await resume(page);
@@ -134,11 +134,21 @@ for (const ownCount of [0, 1, 2]) {
     const player = [...others.slice(0, 5 - ownCount), ...yellow.slice(0, ownCount)].sort(compare);
     const npc = [...others.slice(9, 14 - remaining), ...yellow.slice(ownCount)].sort(compare);
     const match = { ...fixture(), hands: { player, npc } };
-    await page.addInitScript(({ key, match }) => {
-      localStorage.setItem(key, JSON.stringify({ tutorialSeen: true, reduced: true, match }));
-    }, { key, match });
+    const legacy = ownCount === 1;
+    await page.addInitScript(({ key, match, legacy }) => {
+      if (legacy) {
+        for (const tile of [...match.hands.player, ...match.hands.npc]) {
+          if (tile.color === 'yellow') tile.id = 'yellow-5-' + (Number(tile.id.at(-1)) - 1);
+        }
+      }
+      localStorage.setItem(key, JSON.stringify({ tileIdVersion: legacy ? undefined : 2, tutorialSeen: true, reduced: true, match }));
+    }, { key, match, legacy });
     await page.goto('/');
     await resume(page);
+    if (legacy) {
+      await expect.poll(() => page.evaluate(key => JSON.parse(localStorage.getItem(key)!).match.hands, key))
+        .toEqual({ player, npc });
+    }
     await page.getByRole('button', { name: '解答する' }).click();
     const dialog = page.getByRole('dialog');
     const choices = dialog.getByRole('button', { name: /^黄5/ });
@@ -149,10 +159,21 @@ for (const ownCount of [0, 1, 2]) {
       const firstYellow = choices.first();
       await firstYellow.click();
       await expect(dialog.getByRole('button', { name: '1番目 黄5', exact: true })).toBeVisible();
+      await expect(firstYellow).toBeDisabled();
       if (remaining === 2) {
+        const secondYellow = choices.nth(1);
+        await expect(secondYellow).toBeEnabled();
+        await secondYellow.click();
+        const secondSlot = dialog.getByRole('button', { name: '2番目 黄5', exact: true });
+        await expect(secondSlot).toBeVisible();
+        await expect(firstYellow).toBeDisabled();
+        await expect(secondYellow).toBeDisabled();
+        await dialog.getByRole('button', { name: '1番目 黄5', exact: true }).click();
+        await dialog.getByRole('button', { name: 'この位置を空にする' }).click();
         await expect(firstYellow).toBeEnabled();
+        await expect(secondYellow).toBeDisabled();
+        await expect(secondSlot).toBeVisible();
         await firstYellow.click();
-        await expect(dialog.getByRole('button', { name: '2番目 黄5', exact: true })).toBeVisible();
       }
       await expect(choices.and(dialog.locator(':enabled'))).toHaveCount(0);
       await dialog.getByRole('button', { name: 'キャンセル', exact: true }).click();
@@ -173,6 +194,7 @@ test('NPCだけが解答できる手番でNPCが勝ち、敗北を記録する',
   const failed = candidates(npcView(match)).map(handKey).filter(key => key !== correct);
   await page.addInitScript(({ key, match, failed }) => {
     localStorage.setItem(key, JSON.stringify({
+      tileIdVersion: 2,
       tutorialSeen: true,
       reduced: true,
       match: { ...match, actor: 'npc', discard: [...match.market, ...match.deck], market: [], deck: [], failed: { player: [], npc: failed } },

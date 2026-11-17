@@ -16,7 +16,7 @@ const colorOrder = { red: 0, blue: 1, yellow: 2 };
 export const compare = (a: Face, b: Face) => a.value - b.value || colorOrder[a.color] - colorOrder[b.color];
 export const tiles: Tile[] = Array.from({ length: 10 }, (_, value) => {
   const colors: Color[] = value === 5 ? ['yellow', 'yellow'] : ['red', 'blue'];
-  return colors.map((color, index) => ({ value, color, id: color + '-' + value + '-' + index }));
+  return colors.map((color, index) => ({ value, color, id: color + '-' + value + '-' + (color === 'yellow' ? index + 1 : index) }));
 }).flat();
 export const faceKey = (tile: Face) => tile.color + tile.value;
 export const handKey = (hand: readonly Face[]) => hand.map(faceKey).join('/');

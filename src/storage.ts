@@ -1,4 +1,5 @@
 import type { Difficulty, Match } from './game.ts';
+import type { Tile } from './rules.ts';
 
 export type Save = {
   difficulty: Difficulty;
@@ -12,6 +13,12 @@ export type Save = {
 
 const key = 'code-breakers-v1';
 
+function migrateTileId(tile: Tile): Tile {
+  if (tile.id === 'yellow-5-0') return { ...tile, id: 'yellow-5-1' };
+  if (tile.id === 'yellow-5-1') return { ...tile, id: 'yellow-5-2' };
+  return tile;
+}
+
 export function load(): Save {
   const defaults: Save = {
     difficulty: 'normal', sound: false, reduced: false, tutorialSeen: false,
@@ -19,7 +26,13 @@ export function load(): Save {
     match: null, notes: {},
   };
   try {
-    return { ...defaults, ...JSON.parse(localStorage.getItem(key) ?? '{}') };
+    const { tileIdVersion, ...saved } = JSON.parse(localStorage.getItem(key) ?? '{}') as Partial<Save> & { tileIdVersion?: number };
+    const save = { ...defaults, ...saved };
+    if (save.match && tileIdVersion === undefined) {
+      const { player, npc } = save.match.hands;
+      save.match = { ...save.match, hands: { player: player.map(migrateTileId), npc: npc.map(migrateTileId) } };
+    }
+    return save;
   } catch {
     return defaults;
   }
@@ -27,7 +40,7 @@ export function load(): Save {
 
 export function persist(save: Save) {
   try {
-    localStorage.setItem(key, JSON.stringify(save));
+    localStorage.setItem(key, JSON.stringify({ ...save, tileIdVersion: 2 }));
     return true;
   } catch {
     return false;

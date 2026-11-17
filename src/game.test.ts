@@ -17,6 +17,7 @@ describe('タイル', () => {
     expect(tiles.filter(t => t.color === 'yellow').every(t => t.value === 5)).toBe(true);
     expect([...new Set(tiles.map(t => t.value))]).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
     expect(tiles.filter(t => t.value === 5).map(t => t.color)).toEqual(['yellow', 'yellow']);
+    expect(tiles.filter(t => t.value === 5).map(t => t.id)).toEqual(['yellow-5-1', 'yellow-5-2']);
   });
 
   it('重複せず5枚ずつ昇順に配布する', () => {
