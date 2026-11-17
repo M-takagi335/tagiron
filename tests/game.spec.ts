@@ -148,8 +148,13 @@ for (const ownCount of [0, 1, 2]) {
     if (remaining > 0) {
       const firstYellow = choices.first();
       await firstYellow.click();
-      await expect(firstYellow).toBeDisabled();
-      await expect(dialog.getByRole('button', { name: /^黄5/ }).and(dialog.locator(':enabled'))).toHaveCount(remaining - 1);
+      await expect(dialog.getByRole('button', { name: '1番目 黄5', exact: true })).toBeVisible();
+      if (remaining === 2) {
+        await expect(firstYellow).toBeEnabled();
+        await firstYellow.click();
+        await expect(dialog.getByRole('button', { name: '2番目 黄5', exact: true })).toBeVisible();
+      }
+      await expect(choices.and(dialog.locator(':enabled'))).toHaveCount(0);
       await dialog.getByRole('button', { name: 'キャンセル', exact: true }).click();
       await page.getByRole('button', { name: '解答する' }).click();
     }

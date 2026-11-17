@@ -68,9 +68,13 @@ export function GuessPanel({ own, onClose, onGuess }: {
       aria-label={(i + 1) + '番目 ' + (tile ? labelTile(tile) : '未選択')} aria-pressed={!confirm && position === i}
       disabled={confirm} onClick={() => setPosition(i)}>{tile ? <TileFace face={tile} /> : <span className="slot-empty">{i + 1}</span>}</button>)}</div>
     {!confirm && <>
-      <div className="picker">{pool.map(tile => <button key={tile.id} className={'pick ' + tile.color}
-        aria-label={labelTile(tile) + (tile.color === 'yellow' && pool.filter(t => t.color === 'yellow').length === 2 ? ' ' + (Number(tile.id.at(-1)) + 1) + '枚目' : '')}
-        disabled={!remaining.includes(tile)} onClick={() => setTile(tile)}>{tile.value}<small>{colorNames[tile.color]}</small></button>)}</div>
+      <div className="picker">{pool.map(tile => {
+        // Identical faces can use any remaining physical copy.
+        const pick = remaining.includes(tile) ? tile : remaining.find(copy => faceKey(copy) === faceKey(tile));
+        return <button key={tile.id} className={'pick ' + tile.color}
+          aria-label={labelTile(tile) + (tile.color === 'yellow' && pool.filter(t => t.color === 'yellow').length === 2 ? ' ' + (Number(tile.id.at(-1)) + 1) + '枚目' : '')}
+          disabled={!pick} onClick={() => pick && setTile(pick)}>{tile.value}<small>{colorNames[tile.color]}</small></button>;
+      })}</div>
       <div className="guess-tools"><button className="text-btn" disabled={!slots[position]} onClick={() => setTile(null)}><Delete size={17} /> この位置を空にする</button>
         {complete && !ready && <p role="status">数字の昇順、同じ数字は赤 → 青の順です。</p>}</div>
     </>}
