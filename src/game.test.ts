@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ask, guess, newMatch, npcView, other, validGuess } from './game.ts';
 import { candidates, decide } from './npc.ts';
-import { answer, answerLabel, cards, compare, faceKey, handKey, tiles } from './rules.ts';
+import { answer, answerLabel, available, cards, compare, faceKey, handKey, tiles } from './rules.ts';
 
 function hand(...keys: string[]) {
   const from = [...tiles];
@@ -18,6 +18,26 @@ describe('タイル', () => {
     expect([...new Set(tiles.map(t => t.value))]).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
     expect(tiles.filter(t => t.value === 5).map(t => t.color)).toEqual(['yellow', 'yellow']);
     expect(tiles.filter(t => t.value === 5).map(t => t.id)).toEqual(['yellow-5-1', 'yellow-5-2']);
+    for (let value = 0; value <= 9; value++) {
+      const pair = tiles.filter(tile => tile.value === value);
+      expect(pair.map(tile => tile.color)).toEqual(value === 5 ? ['yellow', 'yellow'] : ['red', 'blue']);
+    }
+  });
+
+  it('自分の物理タイル5枚だけを除き、同じ数字の別の色は残す', () => {
+    const own = hand('red1', 'blue2', 'blue4', 'red6', 'blue8');
+    const pool = available(own);
+    expect(pool).toHaveLength(15);
+    for (const tile of own) expect(pool).not.toContain(tile);
+    expect(pool.filter(tile => tile.value === 1).map(tile => tile.id)).toEqual(['blue-1']);
+    expect(pool.filter(tile => tile.value === 2).map(tile => tile.id)).toEqual(['red-2']);
+    expect(pool.filter(tile => tile.value === 3).map(tile => tile.id)).toEqual(['red-3', 'blue-3']);
+
+    const opponent = hand('red0', 'blue0', 'red3', 'blue3', 'red7');
+    const match = { ...newMatch('hard', () => 0.42), hands: { player: own, npc: opponent }, actor: 'player' as const };
+    expect(guess(match, 'player', opponent).winner).toBe('player');
+    expect(guess(match, 'player', [...opponent.slice(0, 4), { color: 'blue', value: 7 }]).winner).toBeNull();
+    expect(validGuess([opponent[0], opponent[1], opponent[3], opponent[2], opponent[4]], own)).toBe(false);
   });
 
   it('重複せず5枚ずつ昇順に配布する', () => {

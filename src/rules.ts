@@ -14,14 +14,25 @@ type Card = {
 export const colorNames = { red: '赤', blue: '青', yellow: '黄' };
 const colorOrder = { red: 0, blue: 1, yellow: 2 };
 export const compare = (a: Face, b: Face) => a.value - b.value || colorOrder[a.color] - colorOrder[b.color];
-export const tiles: Tile[] = Array.from({ length: 10 }, (_, value) => {
-  const colors: Color[] = value === 5 ? ['yellow', 'yellow'] : ['red', 'blue'];
-  return colors.map((color, index) => ({ value, color, id: color + '-' + value + '-' + (color === 'yellow' ? index + 1 : index) }));
-}).flat();
+export const tiles: readonly Tile[] = [
+  { id: 'red-0', value: 0, color: 'red' }, { id: 'blue-0', value: 0, color: 'blue' },
+  { id: 'red-1', value: 1, color: 'red' }, { id: 'blue-1', value: 1, color: 'blue' },
+  { id: 'red-2', value: 2, color: 'red' }, { id: 'blue-2', value: 2, color: 'blue' },
+  { id: 'red-3', value: 3, color: 'red' }, { id: 'blue-3', value: 3, color: 'blue' },
+  { id: 'red-4', value: 4, color: 'red' }, { id: 'blue-4', value: 4, color: 'blue' },
+  { id: 'yellow-5-1', value: 5, color: 'yellow' }, { id: 'yellow-5-2', value: 5, color: 'yellow' },
+  { id: 'red-6', value: 6, color: 'red' }, { id: 'blue-6', value: 6, color: 'blue' },
+  { id: 'red-7', value: 7, color: 'red' }, { id: 'blue-7', value: 7, color: 'blue' },
+  { id: 'red-8', value: 8, color: 'red' }, { id: 'blue-8', value: 8, color: 'blue' },
+  { id: 'red-9', value: 9, color: 'red' }, { id: 'blue-9', value: 9, color: 'blue' },
+];
 export const faceKey = (tile: Face) => tile.color + tile.value;
 export const handKey = (hand: readonly Face[]) => hand.map(faceKey).join('/');
 export const labelTile = (tile: Face) => colorNames[tile.color] + tile.value;
-export const available = (own: readonly Tile[]) => tiles.filter(tile => !own.some(item => item.id === tile.id));
+export function available(own: readonly Tile[]) {
+  const ownedIds = new Set(own.map(tile => tile.id));
+  return tiles.filter(tile => !ownedIds.has(tile.id));
+}
 
 export function shuffle<T>(items: readonly T[], random = Math.random): T[] {
   const result = [...items];

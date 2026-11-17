@@ -1,4 +1,5 @@
 import type { Difficulty, Match } from './game.ts';
+import { tiles } from './rules.ts';
 import type { Tile } from './rules.ts';
 
 export type Save = {
@@ -12,11 +13,17 @@ export type Save = {
 };
 
 const key = 'code-breakers-v1';
+const tileIdVersion = 3;
+const tilesById = new Map(tiles.map(tile => [tile.id, tile]));
 
-function migrateTileId(tile: Tile): Tile {
-  if (tile.id === 'yellow-5-0') return { ...tile, id: 'yellow-5-1' };
-  if (tile.id === 'yellow-5-1') return { ...tile, id: 'yellow-5-2' };
-  return tile;
+function restoreTile(tile: Tile, version: number): Tile {
+  let id = tile.id;
+  if (version === 1 && tile.color === 'yellow') {
+    id = id === 'yellow-5-0' ? 'yellow-5-1' : 'yellow-5-2';
+  } else if (version < tileIdVersion) {
+    id = id.replace(/^(red-[0-9]|blue-[0-9])-[01]$/, '$1');
+  }
+  return tilesById.get(id) ?? tile;
 }
 
 export function load(): Save {
@@ -26,11 +33,14 @@ export function load(): Save {
     match: null, notes: {},
   };
   try {
-    const { tileIdVersion, ...saved } = JSON.parse(localStorage.getItem(key) ?? '{}') as Partial<Save> & { tileIdVersion?: number };
+    const { tileIdVersion: version = 1, ...saved } = JSON.parse(localStorage.getItem(key) ?? '{}') as Partial<Save> & { tileIdVersion?: number };
     const save = { ...defaults, ...saved };
-    if (save.match && tileIdVersion === undefined) {
+    if (save.match) {
       const { player, npc } = save.match.hands;
-      save.match = { ...save.match, hands: { player: player.map(migrateTileId), npc: npc.map(migrateTileId) } };
+      save.match = { ...save.match, hands: {
+        player: player.map(tile => restoreTile(tile, version)),
+        npc: npc.map(tile => restoreTile(tile, version)),
+      } };
     }
     return save;
   } catch {
@@ -40,7 +50,7 @@ export function load(): Save {
 
 export function persist(save: Save) {
   try {
-    localStorage.setItem(key, JSON.stringify({ ...save, tileIdVersion: 2 }));
+    localStorage.setItem(key, JSON.stringify({ ...save, tileIdVersion }));
     return true;
   } catch {
     return false;

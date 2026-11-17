@@ -191,7 +191,7 @@ dialog::backdrop { background: #090613bd; backdrop-filter: blur(5px); }
 .picker { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 6px; }
 .pick { min-height: 46px; border-radius: 7px; border: 1px solid var(--rim); background: var(--face-dark); color: white; font: 700 20px var(--mono); }
 .pick small { font: 10px sans-serif; margin-left: 5px; }
-.pick:disabled { opacity: .3; }
+.pick[aria-pressed=true] { opacity: .54; outline: 1px dashed var(--rim); outline-offset: -4px; }
 .guess-tools { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px; }
 .guess-tools p { color: #ffceb1; font-size: 12px; }
 .tutorial-progress { display: grid; grid-template-columns: repeat(8,1fr); gap: 5px; }

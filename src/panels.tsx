@@ -23,7 +23,6 @@ const noteStates = [
   { name: 'なし', mark: '×' },
   { name: '確定', mark: '✓' },
 ];
-const faces = [...new Map(tiles.map(tile => [faceKey(tile), tile])).values()];
 
 export function Notes({ notes, onChange }: { notes: Record<string, number>; onChange: (key: string, value: number) => void }) {
   const [tab, setTab] = useState(0);
@@ -33,12 +32,13 @@ export function Notes({ notes, onChange }: { notes: Record<string, number>; onCh
     <div className="note-legend">{noteStates.map(({ name, mark }, i) => <span key={name} data-state={i}>
       <span className="note-mark" aria-hidden="true">{mark}</span>{name}
     </span>)}</div>
-    <div className="note-grid">{faces.map(tile => {
-      const key = tab + '/' + faceKey(tile);
-      const state = notes[key] ?? 0;
+    <div className="note-grid">{tiles.map(tile => {
+      const key = tab + '/' + tile.id;
+      const state = notes[key] ?? notes[tab + '/' + faceKey(tile)] ?? 0;
       const { name, mark } = noteStates[state];
+      const label = labelTile(tile) + (tile.color === 'yellow' ? ' ' + tile.id.at(-1) + '枚目' : '');
       return <button key={key} data-state={state} className={tile.color} title={name}
-        aria-label={labelTile(tile) + '、' + name} onClick={() => onChange(key, (state + 1) % noteStates.length)}>
+        aria-label={label + '、' + name} onClick={() => onChange(key, (state + 1) % noteStates.length)}>
         <span className="note-number">{tile.value}</span><span className="note-mark" aria-hidden="true">{mark}</span>
       </button>;
     })}</div>
@@ -64,14 +64,14 @@ export function GuessPanel({ own, onClose, onGuess }: {
     }
   }
   return <Modal title={confirm ? 'このコードで解答しますか？' : 'コードを解答'} onClose={onClose}>
-    <p className="muted">{confirm ? '間違えると相手の手番になります。' : 'スロットを選び、数字と色を左から順に並べます。'}</p>
+    <p className="muted">{confirm ? '間違えると相手の手番になります。' : '自分の手札を除いた15枚から、数字の小さい順に選びます。同じ数字は赤 → 青の順です。'}</p>
     <div className="guess-slots">{slots.map((tile, i) => <button key={i} className="slot"
       aria-label={(i + 1) + '番目 ' + (tile ? labelTile(tile) : '未選択')} aria-pressed={!confirm && position === i}
       disabled={confirm} onClick={() => setPosition(i)}>{tile ? <TileFace face={tile} /> : <span className="slot-empty">{i + 1}</span>}</button>)}</div>
     {!confirm && <>
       <div className="picker">{pool.map(tile => <button key={tile.id} className={'pick ' + tile.color}
         aria-label={labelTile(tile) + (tile.color === 'yellow' && hasTwoYellow ? ' ' + tile.id.at(-1) + '枚目' : '')}
-        disabled={selectedIds.has(tile.id)} onClick={() => setTile(tile)}>{tile.value}<small>{colorNames[tile.color]}</small></button>)}</div>
+        aria-pressed={selectedIds.has(tile.id)} disabled={selectedIds.has(tile.id)} onClick={() => setTile(tile)}>{tile.value}<small>{colorNames[tile.color]}</small></button>)}</div>
       <div className="guess-tools"><button className="text-btn" disabled={!slots[position]} onClick={() => setTile(null)}><Delete size={17} /> この位置を空にする</button>
         {complete && !ready && <p role="status">数字の昇順、同じ数字は赤 → 青の順です。</p>}</div>
     </>}

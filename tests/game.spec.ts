@@ -54,7 +54,7 @@ test('初回案内・難易度選択・タイトルから開始', async ({ page 
 test('選択式質問とNPCの手番がオフラインでも進み、位置メモを再開できる', async ({ context, page }) => {
   const match = fixture();
   await page.addInitScript(({ key, match }) => {
-    if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({ tileIdVersion: 2, tutorialSeen: true, reduced: true, match }));
+    if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({ tileIdVersion: 3, tutorialSeen: true, reduced: true, match }));
   }, { key, match });
   await page.goto('/');
   await resume(page);
@@ -100,7 +100,7 @@ test('誤答を伏せたまま進行し、正解後に成績と再戦を表示�
   const dealt = new Set(Object.values(match.hands).flat().map(tile => tile.id));
   const wrong = [...correct.slice(0, 4), tiles.find(tile => !dealt.has(tile.id) && tile.color !== 'yellow')!].sort(compare);
   await page.addInitScript(({ key, match }) => {
-    localStorage.setItem(key, JSON.stringify({ tileIdVersion: 2, tutorialSeen: true, reduced: true, match }));
+    localStorage.setItem(key, JSON.stringify({ tileIdVersion: 3, tutorialSeen: true, reduced: true, match }));
   }, { key, match });
   await page.goto('/');
   await resume(page);
@@ -126,6 +126,49 @@ test('誤答を伏せたまま進行し、正解後に成績と再戦を表示�
   await expect(dialog.getByText('1 勝', { exact: true })).toBeVisible();
 });
 
+test('宣言候補15枚から赤と青の1・3を個別に選択、解除して正解できる', async ({ page }) => {
+  const playerIds = ['red-0', 'red-2', 'red-4', 'blue-6', 'red-9'];
+  const npcIds = ['red-1', 'blue-1', 'red-3', 'blue-3', 'red-6'];
+  const player = tiles.filter(tile => playerIds.includes(tile.id));
+  const npc = tiles.filter(tile => npcIds.includes(tile.id));
+  const match = { ...fixture(), hands: { player, npc } };
+  await page.addInitScript(({ key, match }) => {
+    for (const tile of [...match.hands.player, ...match.hands.npc]) {
+      tile.id += tile.color === 'red' ? '-0' : '-1';
+    }
+    localStorage.setItem(key, JSON.stringify({ tileIdVersion: 2, tutorialSeen: true, reduced: true, match }));
+  }, { key, match });
+  await page.goto('/');
+  await resume(page);
+  await page.getByRole('button', { name: '解答する' }).click();
+  const dialog = page.getByRole('dialog');
+  const picker = dialog.locator('.picker');
+  const choices = picker.getByRole('button');
+  const expected = tiles.filter(tile => !playerIds.includes(tile.id))
+    .map(tile => String(tile.value) + colorNames[tile.color]);
+  await expect(choices).toHaveCount(15);
+  await expect(choices).toHaveText(expected);
+  const redOne = picker.getByRole('button', { name: '赤1', exact: true });
+  const blueOne = picker.getByRole('button', { name: '青1', exact: true });
+  await redOne.click();
+  await expect(redOne).toBeDisabled();
+  await expect(blueOne).toBeEnabled();
+  await blueOne.click();
+  const firstSlot = dialog.getByRole('button', { name: '1番目 赤1', exact: true });
+  await firstSlot.click();
+  await dialog.getByRole('button', { name: 'この位置を空にする' }).click();
+  await expect(redOne).toBeEnabled();
+  await expect(blueOne).toBeDisabled();
+  await expect(choices).toHaveText(expected);
+  await redOne.click();
+  await picker.getByRole('button', { name: '赤3', exact: true }).click();
+  await picker.getByRole('button', { name: '青3', exact: true }).click();
+  await picker.getByRole('button', { name: '赤6', exact: true }).click();
+  await dialog.getByRole('button', { name: '確認へ' }).click();
+  await dialog.getByRole('button', { name: '解答を確定' }).click();
+  await expect(dialog.getByText('CODE BROKEN')).toBeVisible();
+});
+
 for (const ownCount of [0, 1, 2]) {
   test('自分の黄色5が' + ownCount + '枚なら残りの黄色5だけ宣言できる', async ({ page }) => {
     const yellow = tiles.filter(tile => tile.value === 5);
@@ -139,9 +182,10 @@ for (const ownCount of [0, 1, 2]) {
       if (legacy) {
         for (const tile of [...match.hands.player, ...match.hands.npc]) {
           if (tile.color === 'yellow') tile.id = 'yellow-5-' + (Number(tile.id.at(-1)) - 1);
+          else tile.id += tile.color === 'red' ? '-0' : '-1';
         }
       }
-      localStorage.setItem(key, JSON.stringify({ tileIdVersion: legacy ? undefined : 2, tutorialSeen: true, reduced: true, match }));
+      localStorage.setItem(key, JSON.stringify({ tileIdVersion: legacy ? undefined : 3, tutorialSeen: true, reduced: true, match }));
     }, { key, match, legacy });
     await page.goto('/');
     await resume(page);
@@ -194,7 +238,7 @@ test('NPCだけが解答できる手番でNPCが勝ち、敗北を記録する',
   const failed = candidates(npcView(match)).map(handKey).filter(key => key !== correct);
   await page.addInitScript(({ key, match, failed }) => {
     localStorage.setItem(key, JSON.stringify({
-      tileIdVersion: 2,
+      tileIdVersion: 3,
       tutorialSeen: true,
       reduced: true,
       match: { ...match, actor: 'npc', discard: [...match.market, ...match.deck], market: [], deck: [], failed: { player: [], npc: failed } },
